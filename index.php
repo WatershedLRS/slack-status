@@ -1,7 +1,8 @@
 <?php
-
 require_once('config.php');
 require_once("TinCanPHP/autoload.php");
+
+date_default_timezone_set('UTC');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -32,6 +33,10 @@ $lrs = new TinCan\RemoteLRS(
     $CFG->lrs->secret
 );
 
+$text;
+$text = substr($_POST["text"], strlen($CFG->slack->prefix) + 1);
+
+
 $actor = new TinCan\Agent(
     [ 
         'name' => $_POST["user_name"],
@@ -54,7 +59,7 @@ $activity = new TinCan\Activity(
         'id' => 'https://'.$_POST["team_domain"].'.slack.com/archives/'.$_POST["channel_name"].'/p'.$_POST["timestamp"],
         'definition' => [
             'name' => [
-                'en' => $_POST["text"]
+                'en' => $text
             ],
             'type' => 'http://id.tincanapi.com/activitytype/chat-message'
         ]
@@ -62,7 +67,7 @@ $activity = new TinCan\Activity(
 );
 $result  = new TinCan\Result(
     [
-        "response" => $_POST["text"]
+        "response" => $text
     ]
 );
 $context  = new TinCan\Context(
@@ -121,11 +126,15 @@ $statement = new TinCan\Statement(
 
 $response = $lrs->saveStatement($statement);
 if ($response->success) {
+    $message = str_replace('@name', '@'.$_POST["user_name"], $CFG->slack->responses[array_rand($CFG->slack->responses)]);
+    header('Content-Type: application/json');
+    echo('{"text":"'.$message.'"}');
     http_response_code(200);
     die();
 }
 else {
-    echo "Error statement not sent: " . $response->content . "\n";
+    header('Content-Type: application/json');
+    echo('{text: "'."Error statement not sent: " . $response->content .'"}');
     http_response_code(500);
     die();
 }
