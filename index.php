@@ -19,8 +19,8 @@ if (
     || !isset($_POST["user_id"]) 
     || !isset($_POST["team_domain"]) 
     || !isset($_POST["channel_name"]) 
-    || !isset($_POST["timestamp"])
     || !isset($_POST["text"])
+    || !isset($_POST["trigger_id"])
 ) {
     http_response_code(400);
     die();
@@ -33,8 +33,7 @@ $lrs = new TinCan\RemoteLRS(
     $CFG->lrs->secret
 );
 
-$text;
-$text = substr($_POST["text"], strlen($CFG->slack->prefix) + 1);
+$text = $_POST["text"];
 
 
 $actor = new TinCan\Agent(
@@ -56,7 +55,7 @@ $verb = new TinCan\Verb(
 );
 $activity = new TinCan\Activity(
     [
-        'id' => 'https://'.$_POST["team_domain"].'.slack.com/archives/'.$_POST["channel_name"].'/p'.$_POST["timestamp"],
+        'id' => 'https://'.$_POST["team_domain"].'.slack.com/archives/'.$_POST["channel_name"].'/p'.$_POST["trigger_id"],
         'definition' => [
             'name' => [
                 'en' => $text
@@ -108,10 +107,10 @@ $context  = new TinCan\Context(
                     ]
                 ]
             ]
-        ]
+    ]
     ]
 );
-$timestamp = date('c', $_POST["timestamp"]); 
+$timestamp = date('c'); 
 
 $statement = new TinCan\Statement(
     [
@@ -230,7 +229,7 @@ if ($response->success) {
         }
 
         // Today is not included in the filter.
-        $activeDays = $csvData[2][1] + 1;
+        $activeDays = $csvData[1][1] + 1;
 
         $daysLookUp = [
             "default" => [
@@ -251,32 +250,32 @@ if ($response->success) {
                 "Friday" => 13,
                 "Saturday" => 12
             ]
-        ];
+    ];
 
-        $totalDays;
+    $totalDays;
 
         if (isset($daysLookUp[$_POST["user_name"]])){
             $totalDays = $daysLookUp[$_POST["user_name"]][date("l")];
         }
-        else {
+    else {
             $totalDays = $daysLookUp["default"][date("l")];
         }
 
-        $daysPercent = ($activeDays / $totalDays) * 100;
+    $daysPercent = ($activeDays / $totalDays) * 100;
 
         $message = 'Great job @'.$_POST["user_name"]."! You slacked your status ".number_format($daysPercent, 2)."% of days in the last month!";
     }
     else {
-        $message = str_replace('@name', '@'.$_POST["user_name"], $CFG->slack->responses[array_rand($CFG->slack->responses)]);
+    $message = str_replace('@name', '@'.$_POST["user_name"], $CFG->slack->responses[array_rand($CFG->slack->responses)]);
     }
     header('Content-Type: application/json');
-    echo('{"text":"'.$message.'"}');
+    echo('{"response_type": "in_channel", "text":"'.$message.'"}');
     http_response_code(200);
     die();
 }
 else {
     header('Content-Type: application/json');
-    echo('{text: "'."Error statement not sent: " . $response->content .'"}');
+    echo('{"response_type": "in_channel", "text": "'."Error statement not sent: " . $response->content .'"}');
     http_response_code(500);
     die();
 }
