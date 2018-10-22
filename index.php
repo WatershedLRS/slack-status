@@ -4,6 +4,7 @@ require_once("TinCanPHP/autoload.php");
 
 date_default_timezone_set('UTC');
 
+# Initial request checks
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     die();
@@ -20,12 +21,26 @@ if (
     || !isset($_POST["team_domain"]) 
     || !isset($_POST["channel_name"]) 
     || !isset($_POST["text"])
+    || !isset($_POST["response_url"])
     || !isset($_POST["trigger_id"])
 ) {
     http_response_code(400);
     die();
 }
 
+# Send immediate OK response, and then process the rest async
+ignore_user_abort(true);
+set_time_limit(0);
+ob_start();
+header('Content-Type: application/json');
+echo('{"response_type":"in_channel", "text":""}');
+header('Connection: close');
+header('Content-Length: '.ob_get_length());
+ob_end_flush();
+ob_flush();
+flush();
+
+# Post a statement of the status update
 $lrs = new TinCan\RemoteLRS(
     $CFG->lrs->endpoint,
     '1.0.1',
@@ -34,7 +49,6 @@ $lrs = new TinCan\RemoteLRS(
 );
 
 $text = $_POST["text"];
-
 
 $actor = new TinCan\Agent(
     [ 
@@ -110,6 +124,7 @@ $context  = new TinCan\Context(
     ]
     ]
 );
+
 $timestamp = date('c'); 
 
 $statement = new TinCan\Statement(
@@ -124,6 +139,8 @@ $statement = new TinCan\Statement(
 );
 
 $response = $lrs->saveStatement($statement);
+
+# If statement saved, calculate daily percentage value
 if ($response->success) {
 
     $url = str_replace('lrs/', 'aggregation/csv', $CFG->lrs->endpoint);
@@ -250,34 +267,34 @@ if ($response->success) {
                 "Friday" => 13,
                 "Saturday" => 12
             ]
-    ];
+    	];
 
-    $totalDays;
-
+        $totalDays;
         if (isset($daysLookUp[$_POST["user_name"]])){
             $totalDays = $daysLookUp[$_POST["user_name"]][date("l")];
-        }
-    else {
+        } else {
             $totalDays = $daysLookUp["default"][date("l")];
         }
 
-    $daysPercent = ($activeDays / $totalDays) * 100;
-
+        $daysPercent = ($activeDays / $totalDays) * 100;
         $message = 'Great job @'.$_POST["user_name"]."! You slacked your status ".number_format($daysPercent, 2)."% of days in the last month!";
+    } else {
+    	$message = str_replace('@name', '@'.$_POST["user_name"], $CFG->slack->responses[array_rand($CFG->slack->responses)]);
     }
-    else {
-    $message = str_replace('@name', '@'.$_POST["user_name"], $CFG->slack->responses[array_rand($CFG->slack->responses)]);
-    }
-    header('Content-Type: application/json');
-    echo('{"response_type": "in_channel", "text":"'.$message.'"}');
-    http_response_code(200);
-    die();
+} else {
+    $message = "Error statement not sent: " . $response->content;
 }
-else {
-    header('Content-Type: application/json');
-    echo('{"response_type": "in_channel", "text": "'."Error statement not sent: " . $response->content .'"}');
-    http_response_code(500);
-    die();
-}
+
+# Finally, post result to response_url
+$url = $_POST["response_url"];
+$options = array(
+        'http' => array(
+        'header'  => "Content-type: application/json\r\n",
+        'method'  => 'POST',
+        'content' => '{"response_type": "in_channel", "text":"'.$message.'"}'
+    )
+);
+$context  = stream_context_create($options);
+$result = file_get_contents($url, false, $context);
 
 ?>
