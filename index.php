@@ -193,7 +193,7 @@ $options = array(
         'http' => array(
         'header'  => "Content-type: application/json\r\n",
         'method'  => 'POST',
-        'content' => '{"response_type": "ephemeral", "text":"'.$message.'"}'
+        'content' => '{"response_type": "'.$CFG->slack->responseType.'", "text":"'.$message.'"}'
     )
 );
 $context  = stream_context_create($options);

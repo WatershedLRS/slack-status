@@ -3,7 +3,8 @@
 $CFG = (object)[
     'slack' => (object)[
         'token' => '',
-        'prefix' => '/command'
+        'prefix' => '/command',
+        'responseType' => 'ephemeral'
     ],
     'lrs' => (object)[
         'endpoint' => 'https://sandbox.watershedlrs.com/api/organizations/xxxx/lrs/',
