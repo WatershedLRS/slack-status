@@ -11,6 +11,6 @@ $CFG = (object)[
         'key' => '',
         'secret' => ''
     ],
-    'responsesSheetId' => "x"
+    'responsesSheetUrl' => "x/pub?output=csv"
 ]
 ?>

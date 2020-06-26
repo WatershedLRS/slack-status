@@ -142,22 +142,14 @@ $response = $lrs->saveStatement($statement);
 
 # If statement saved, send a random response
 if ($response->success) {
-    $url = 'https://docs.google.com/spreadsheets/u/0/d/' . $CFG->responsesSheetId . '/export';
+    $url = $CFG->responsesSheetUrl;
     $http = array(
-        'max_redirects' => 0,
+        'max_redirects' => "5",
         'request_fulluri' => 1,
         'ignore_errors' => true,
         'method' => 'GET',
         'header' => []
     );
-
-    $params = [
-        "format" => "csv",
-        "id" => $CFG->responsesSheetId,
-        "gid" => "0",
-    ];
-
-    $url .= '?'.http_build_query($params);
 
     $context = stream_context_create(array( 'http' => $http ));
     $fp = fopen($url, 'rb', false, $context);
@@ -170,7 +162,11 @@ if ($response->success) {
 
     fclose($fp);
 
-    if ($responseCode === 200) {
+    //error_log("url  = $url");
+    //error_log("response code = $responseCode");
+    //error_log("content = $content");
+
+    if ($responseCode < 400) {
         $rowsAsStr = str_getcsv($content, "\n");
         $messages =[];
         foreach ($rowsAsStr as $row) {
